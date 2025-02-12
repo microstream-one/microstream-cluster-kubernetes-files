@@ -1,0 +1,156 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: storagenode
+spec:
+  podManagementPolicy: Parallel
+  replicas: 1
+  serviceName: node-headless
+  selector:
+    matchLabels:
+      microstream.one/cluster-component: storagenode
+  template:
+    metadata:
+      labels:
+        microstream.one/cluster-component: storagenode
+        app.kubernetes.io/component: node
+    spec:
+      imagePullSecrets: [ name: microstream-ocir-credentials ]
+      securityContext:
+        runAsNonRoot: true
+        fsGroupChangePolicy: OnRootMismatch
+        fsGroup: 10000
+        runAsUser: 10000
+        runAsGroup: 10000
+      initContainers:
+      - name: prepare-storagenode
+        image: curlimages/curl:8.11.1
+        command: 
+        - sh
+        - -ce
+        - |
+          # Wait for the user rest service project to exist
+          echo "Waiting for user rest service jar (timeout=10min)..."
+          i=0
+          until [ -f /masternode/project/ready ]; do
+            sleep 1s
+            # Fail if we time out
+            if [ $i -gt 600 ]; then
+              echo "Timed out waiting for /masternode/project/ready to exist" >&2
+              exit 1
+            fi
+            i=$((i+1))
+          done
+          echo "Success!"
+
+          # Wait for masternode storage for 5 minutes
+          echo "Waiting for backup storage to exist (timeout=5min)..."
+          i=0
+          until [ -f /masternode/storage/PersistenceTypeDictionary.ptd -a -d /masternode/storage/channel_0 ]; do
+            sleep 1s
+            # Fail if we time out
+            if [ $i -gt 300 ]; then
+              echo "Timed out waiting for backup storage to exist" >&2
+              exit 1
+            fi
+            i=$((i+1))
+          done
+          echo "Success!"
+
+          # Clone the masternode storage as a starting point
+          echo "Trying to remove any residual storage files..."
+          rm -r /storage/storage && echo "Removed previous storage files" || echo "No residual storage files located"
+          rm /storage/offset && echo "Removed previous offset file" || echo "No residual storage offset located"
+          echo "Cloning the masternode storage..."
+          cp -r /masternode/storage /storage/storage
+          echo "Cloning the masternode offset file..."
+          cp /masternode/offset /storage/offset
+          echo "Cloning the user rest service project..."
+          cp -r /masternode/project /storage
+          echo "Success!"
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ all ]
+        volumeMounts:
+        - name: masternode-storage
+          mountPath: /masternode
+          readOnly: true
+        - name: storage
+          mountPath: /storage
+      containers:
+      - name: storagenode
+        image: ocir.microstream.one/onprem/image/microstream-cluster-storage-node:1.10.0-SNAPSHOT
+        args: [ /storage/project/project.jar ]
+        workingDir: /storage
+        env:
+        - name: MSCNL_PROD_MODE
+          value: "true"
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: MY_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: IS_BACKUP_NODE
+          value: "false"
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: kafka-0.kafka:9092
+        - name: MSCNL_KAFKA_TOPIC_NAME
+          value: storage-data
+        - name: MSCNL_SECURE_KAFKA
+          value: "false"
+        - name: MSCNL_KAFKA_USERNAME
+          value: ""
+        - name: MSCNL_KAFKA_PASSWORD
+          value: ""
+        - name: MICROSTREAM_PATH
+          value: "/microstream-cluster-controller/"
+        - name: STORAGE_LIMIT_GB
+          value: "20G"
+        - name: STORAGE_LIMIT_CHECKER_PERCENT
+          value: "95"
+        - name: STORAGE_LIMIT_CHECKER_INTERVAL_MINUTES
+          value: "60"
+        ports:
+        - name: http
+          containerPort: 8080
+        # Restart the pod if container is not responsive at all
+        livenessProbe:
+          timeoutSeconds: 5
+          failureThreshold: 5
+          httpGet:
+            path: /microstream-cluster-controller/microstream-health
+            port: http
+        # Remove the pod from being ready if we fail to check
+        readinessProbe:
+          timeoutSeconds: 4
+          failureThreshold: 3
+          httpGet:
+            path: /microstream-cluster-controller/microstream-health/ready
+            port: http
+        # Give the container ~50 seconds to fully start up
+        startupProbe:
+          timeoutSeconds: 5
+          failureThreshold: 10
+          httpGet:
+            path: /microstream-cluster-controller/microstream-health
+            port: http
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ all ]
+        volumeMounts:
+        - name: storage
+          mountPath: /storage
+      volumes:
+      - name: user-rest-service
+        emptyDir:
+      - name: storage
+        emptyDir:
+      - name: masternode-storage
+        persistentVolumeClaim:
+          claimName: masternode-storage
+          readOnly: true

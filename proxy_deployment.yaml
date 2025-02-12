@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      microstream.one/cluster-component: proxy
+  template:
+    metadata:
+      labels:
+        microstream.one/cluster-component: proxy
+    spec:
+      imagePullSecrets: [ name: microstream-ocir-credentials ]
+      containers:
+      - name: nginx
+        image: nginx:1.27-alpine
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        volumeMounts:
+        - name: config
+          subPath: nginx.conf
+          mountPath: /etc/nginx/nginx.conf
+      volumes:
+      - name: config
+        configMap:
+          name: proxy
+        

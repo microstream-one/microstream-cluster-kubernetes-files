@@ -1,0 +1,122 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kafka
+spec:
+  serviceName: kafka
+  replicas: 1
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      microstream.one/cluster-component: kafka
+  template:
+    metadata:
+      labels:
+        microstream.one/cluster-component: kafka
+    spec:
+      imagePullSecrets: [ name: microstream-ocir-credentials ]
+      containers:
+      - name: kafka
+        image: ocir.microstream.one/onprem/image/microstream-cluster-kafka:1.10.0-SNAPSHOT
+        ports:
+        - name: plaintext
+          containerPort: 9092
+        - name: controller
+          containerPort: 9093
+        env:
+        # Configurations are automatically parsed from envars prefixed with KAFKA_CFG
+        # The keys are transformed from snake case to dotted lowercase
+        
+        # Used for kafka node id and ADVERTISED_LISTENER generation. The bootstrap script takes the id part (for kafka-0 it would be 0)
+        # and sets the NODE_ID to that value. For ADVERTISED_LISTENER it will simply replace %'s with the pod name
+        # e.g. CLIENT://%.kafka:9092 = CLIENT://kafka-0.kafka:9092
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        
+        # UUID identifying this kafka cluster
+        - name: KAFKA_CFG_CLUSTER_ID
+          value: sZDP3FUBQGWfNSEFG1Y-jA
+        
+        # Server Basics
+        - name: KAFKA_CFG_PROCESS_ROLES
+          value: broker,controller
+
+        - name: KAFKA_CFG_CONTROLLER_QUORUM_BOOTSTRAP_SERVERS
+          value: localhost:9093
+        
+        # Server Socket Settings
+        - name: KAFKA_CFG_INTER_BROKER_LISTENER_NAME
+          value: PLAINTEXT
+
+        - name: KAFKA_CFG_CONTROLLER_LISTENER_NAMES
+          value: CONTROLLER
+
+        - name: KAFKA_CFG_LISTENERS
+          value: PLAINTEXT://:9092,CONTROLLER://:9093
+
+        - name: ADVERTISED_LISTENERS_TEMPLATE
+          value: PLAINTEXT://%.kafka:9092,CONTROLLER://%.kafka:9093
+
+        - name: KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP
+          value: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL
+        
+        # Should be set appropriately with how many cores are available for multithreading etc.
+        - name: KAFKA_CFG_NUM_NETWORK_THREADS
+          value: "3"
+        # Should be set appropriately with how many cores are available for multithreading etc.
+        - name: KAFKA_CFG_NUM_IO_THREADS
+          value: "8"
+              
+        # Log Basics
+        - name: KAFKA_CFG_LOG_DIR
+          value: /mnt/kafka/logs
+        
+        - name: KAFKA_CFG_NUM_PARTITIONS
+          value: "1"
+        
+        # Internal Topic Settings
+        - name: KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR
+          value: "1"
+
+        - name: KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR
+          value: "1"
+
+        - name: KAFKA_LOG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
+          value: "1"
+
+        - name: KAFKA_CFG_CONFIG_STORAGE_REPLICATION_FACTOR
+          value: "1"
+
+        - name: KAFKA_CFG_OFFSET_STORAGE_REPLICATION_FACTOR
+          value: "1"
+
+        - name: KAFKA_CFG_STATUS_STORAGE_REPLICATION_FACTOR
+          value: "1"
+
+        - name: KAFKA_CFG_ERRORS_DEADLETTERQUEUE_TOPIC_REPLICATION_FACTOR
+          value: "1"
+
+        - name: KAFKA_CFG_REPLICATION_FACTOR
+          value: "1"
+        
+        # Log Retention Policy
+        # These need to be kept until we are sure that the masternode has consumed the messages
+        # because new storage nodes will clone the masternode storage, we effectively don't need messages older than the
+        # current masternode state.
+        - name: KAFKA_CFG_LOG_RETENTION_HOURS
+          # 336 hours = 2 weeks
+          value: "336"
+          
+        volumeMounts:
+        - name: logs
+          mountPath: /mnt/kafka
+  volumeClaimTemplates:
+  - metadata:
+      name: logs
+    spec:
+      accessModes: [ ReadWriteOnce ]
+      resources:
+        requests:
+          storage: 20G

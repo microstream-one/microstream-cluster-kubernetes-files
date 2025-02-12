@@ -1,0 +1,120 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: masternode
+spec:
+  imagePullSecrets: [ name: microstream-ocir-credentials ]
+  securityContext:
+    runAsNonRoot: true
+    fsGroupChangePolicy: OnRootMismatch
+    fsGroup: 10000
+    runAsUser: 10000
+    runAsGroup: 10000
+  initContainers:
+  - name: prepare-masternode
+    image: curlimages/curl:8.11.1
+    command: 
+    - sh
+    - -ce
+    - |
+      # Wait for the user rest service project to exist
+      # You can upload the jar like this:
+      # `kubectl cp -c prepare-masternode /path/to/jar masternode:/storage/project/project.jar`
+      # If you have a libs folder as well you can copy it with
+      # `kubectl cp -c prepare-masternode /path/to/libs masternode:/storage/project`
+      # When you are done create the ready flag with
+      # `kubectl exec -ti -c prepare-masternode pod/masternode -- touch /storage/project/ready`
+      mkdir -p /storage/project
+      echo "Waiting for user rest service jar (timeout=10min)..."
+      i=0
+      until [ -f /storage/project/ready ]; do
+        sleep 1s
+        # Fail if we time out
+        if [ $i -gt 600 ]; then
+          echo "Timed out waiting for /storage/project/ready to exist" >&2
+          exit 1
+        fi
+        i=$((i+1))
+      done
+      echo "Success!"
+
+      # Check for kafka ready flag for 5 minutes
+      echo "Waiting for kafka to be ready (timeout=5min)..."
+      i=0
+      until nc -z -w5 kafka 9092; do
+        sleep 1s
+        # Fail if we time out
+        if [ $i -gt 300 ]; then
+          echo "Timed out waiting for kafka to be ready" >&2
+          exit 1
+        fi
+        i=$((i+1))
+      done
+      echo "Success!"
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop: [ all ]
+    volumeMounts:
+    - name: storage
+      mountPath: /storage
+  containers:
+  - name: masternode
+    image: ocir.microstream.one/onprem/image/microstream-cluster-storage-node:1.10.0-SNAPSHOT
+    workingDir: /storage
+    args: [ "/storage/project/project.jar" ]
+    env:
+    - name: MSCNL_PROD_MODE
+      value: "true"
+    - name: KAFKA_BOOTSTRAP_SERVERS
+      value: kafka-0.kafka:9092
+    - name: MSCNL_KAFKA_TOPIC_NAME
+      value: storage-data
+    - name: MSCNL_SECURE_KAFKA
+      value: "false"
+    - name: MSCNL_KAFKA_USERNAME
+      value: ""
+    - name: MSCNL_KAFKA_PASSWORD
+      value: ""
+    # Keep Spring Boot (if used in the user rest service) from initializing the user controllers which might lead to NPEs
+    - name: SPRING_MAIN_LAZY-INITIALIZATION
+      value: "true"
+    - name: IS_BACKUP_NODE
+      value: "true"
+    - name: BACKUP_PROXY_SERVICE_URL
+      value: external-resource-proxy
+    ports:
+    - name: http
+      containerPort: 8080
+    # Restart the pod if container is not responsive at all
+    livenessProbe:
+      timeoutSeconds: 5
+      failureThreshold: 5
+      httpGet:
+        path: /microstream-cluster-controller/microstream-health
+        port: http
+    # Remove the pod from being ready if we fail to check
+    readinessProbe:
+      timeoutSeconds: 4
+      failureThreshold: 3
+      httpGet:
+        path: /microstream-cluster-controller/microstream-health/ready
+        port: http
+    # Give the container ~50 seconds to fully start up
+    startupProbe:
+      timeoutSeconds: 5
+      failureThreshold: 10
+      httpGet:
+          path: /microstream-cluster-controller/microstream-health
+          port: http
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop: [ all ]
+    volumeMounts:
+    - name: storage
+      mountPath: /storage
+  volumes:
+  - name: storage
+    persistentVolumeClaim:
+      claimName: masternode-storage
