@@ -60,7 +60,7 @@ spec:
       mountPath: /storage
   containers:
   - name: masternode
-    image: ocir.microstream.one/onprem/image/microstream-cluster-storage-node:1.11.0-SNAPSHOT
+    image: ocir.microstream.one/onprem/image/microstream-cluster-storage-node:1.14.0-SNAPSHOT
     workingDir: /storage
     args: [ "/storage/project/project.jar" ]
     env:
