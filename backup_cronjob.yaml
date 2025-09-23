@@ -1,0 +1,126 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: storage-backup
+spec:
+  schedule: "*/30 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          imagePullSecrets: [ name: microstream-ocir-credentials ]
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            fsGroupChangePolicy: OnRootMismatch
+            fsGroup: 10000
+            runAsUser: 10000
+            runAsGroup: 10000
+          containers:
+          - name: backup
+            image: curlimages/curl:8.11.1
+            command: [ sh, -c ]
+            resources:
+              requests:
+                memory: 100M
+                cpu: 500m
+              limits:
+                memory: 100M
+                cpu: 500m
+            env:
+            - name: MY_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            args:
+            - |
+              # CONSTANTS
+              token="$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)"
+              cacert="/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+              backup_pod_url='http://masternode/microstream-cluster-controller'
+              ns="$MY_NAMESPACE"
+              wait_loop_retries=7200
+
+              # Appends the arguments to curl with a list of default options.
+              # Sets 'ret' to the response
+              http() {
+                ret=$(curl --fail --no-progress-meter 2>&1 $@)
+              }
+
+              fail() {
+                echo "$1" >&2
+                exit 1
+              }
+
+              # Makes the http request and returns the response, or cleans up and exits on failure
+              # Sets 'ret' to the response
+              ensure_http() {
+                http $@
+                [ $? != 0 ] && fail "Failed to call endpoint: $ret"
+              }
+
+              update_to_latest_microstream_offset() {
+                echo "Updating to latest offset"
+                ensure_http -X POST "$backup_pod_url/microstream-updates"
+
+                echo "Waiting for updates to finish..."
+                local i=0
+                until [ $i -gt $wait_loop_retries ]; do
+                  ensure_http -H 'Content-Type:application/json' "$backup_pod_url/microstream-updates"
+                  [ "$ret" = "true" ] && break
+                  sleep 1
+                  i=$(expr $i + 1)
+                done
+                if [ $i -gt $wait_loop_retries ]; then
+                  fail "Timed out waiting for backup to stop"
+                fi
+                echo "...done!"
+              }
+
+              collect_backup_pod_garbage() {
+                echo "Issuing garbage collection"
+                ensure_http -X POST "$backup_pod_url/microstream-gc"
+
+                local i=0
+
+                echo "Waiting for garbage collection completion"
+                until [ $i -gt $wait_loop_retries ]
+                do
+                  ensure_http "$backup_pod_url/microstream-gc"
+                  [ "$ret" = "false" ] && break
+                  sleep 1
+                  i=$(expr $i + 1)
+                done
+
+                if [ $i -gt $wait_loop_retries ]; then
+                  fail "Timed out waiting for backup to stop"
+                fi
+              }
+
+              create_backup() {
+                echo "Creating backup"
+                ensure_http -X POST "$backup_pod_url/microstream-backup"
+                local id="$ret"
+                echo "Waiting for backup to finish"
+                while [ "$(ensure_http $backup_pod_url/microstream-backup)" = "true" ]; do
+                  sleep 1
+                done
+              }
+
+              resume_updates() {
+                echo "Resuming updates"
+                ensure_http -X POST "$backup_pod_url/microstream-resume-updates"
+              }
+
+              # PROGRAM START
+
+              update_to_latest_microstream_offset
+              collect_backup_pod_garbage
+              create_backup
+              resume_updates
+
+              echo "Done!"

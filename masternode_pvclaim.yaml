@@ -3,8 +3,7 @@ kind: PersistentVolumeClaim
 metadata:
   name: masternode-storage
 spec:
-  # Needs to be read-write-many so every storage node can attach and clone the storage as a starting point
-  accessModes: [ ReadWriteMany ]
+  accessModes: [ ReadWriteOnce ]
   resources:
     requests:
       storage: 20G

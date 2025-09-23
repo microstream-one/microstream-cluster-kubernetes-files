@@ -11,7 +11,7 @@ spec:
     fsGroup: 1000
   containers:
   - name: writerproxy
-    image: ocir.microstream.one/onprem/image/microstream-cluster-writer-proxy:1.14.0-SNAPSHOT
+    image: ocir.microstream.one/onprem/image/microstream-cluster-writer-proxy:1.14.0
     env:
     - name: MICROSTREAM_PATH
       value: '/microstream-cluster-controller/'

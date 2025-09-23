@@ -4,7 +4,7 @@ metadata:
   name: storagenode
 spec:
   podManagementPolicy: Parallel
-  replicas: 1
+  replicas: 2
   serviceName: node-headless
   selector:
     matchLabels:
@@ -29,60 +29,73 @@ spec:
         - sh
         - -ce
         - |
-          # Wait for the user rest service project to exist
-          echo "Waiting for user rest service jar (timeout=10min)..."
-          i=0
-          until [ -f /masternode/project/ready ]; do
-            sleep 1s
-            # Fail if we time out
-            if [ $i -gt 600 ]; then
-              echo "Timed out waiting for /masternode/project/ready to exist" >&2
-              exit 1
-            fi
-            i=$((i+1))
-          done
-          echo "Success!"
+          # Remove residual files
+          echo "Removing any residual storage files..."
+          if [ -d /storage/storage ]; then
+            echo "Removing residual storage files"
+            rm -r /storage/storage
+          fi
+          if [ -f /storage/offset ]; then
+            echo "Removing residual offset file"
+            rm /storage/offset
+          fi
+          echo "...done!"
 
-          # Wait for masternode storage for 5 minutes
-          echo "Waiting for backup storage to exist (timeout=5min)..."
-          i=0
-          until [ -f /masternode/storage/PersistenceTypeDictionary.ptd -a -d /masternode/storage/channel_0 ]; do
-            sleep 1s
-            # Fail if we time out
-            if [ $i -gt 300 ]; then
-              echo "Timed out waiting for backup storage to exist" >&2
-              exit 1
-            fi
-            i=$((i+1))
+          # Find latest backup
+          echo "Finding latest backup..."
+          while [ -z "$latest_backup" ]; do
+            latest_backup=$(find /backups -mindepth 2 -maxdepth 2 -type f -iname ready | cut -d/ -f3 | sort -n | tail -n 1)
           done
-          echo "Success!"
+          echo "...found latest backup $latest_backup"
 
-          # Clone the masternode storage as a starting point
-          echo "Trying to remove any residual storage files..."
-          rm -r /storage/storage && echo "Removed previous storage files" || echo "No residual storage files located"
-          rm /storage/offset && echo "Removed previous offset file" || echo "No residual storage offset located"
-          echo "Cloning the masternode storage..."
-          cp -r /masternode/storage /storage/storage
-          echo "Cloning the masternode offset file..."
-          cp /masternode/offset /storage/offset
-          echo "Cloning the user rest service project..."
-          cp -r /masternode/project /storage
-          echo "Success!"
+          # Copy backup files into our storage
+          echo "Copying files..."
+          cp -r /backups/$latest_backup/* /storage
+          echo "...done!"
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
             drop: [ all ]
         volumeMounts:
-        - name: masternode-storage
-          mountPath: /masternode
+        - name: backups
+          mountPath: /backups
           readOnly: true
         - name: storage
           mountPath: /storage
       containers:
       - name: storagenode
-        image: ocir.microstream.one/onprem/image/microstream-cluster-storage-node:1.14.0-SNAPSHOT
-        args: [ /storage/project/project.jar ]
+        image: ocir.microstream.one/onprem/image/microstream-cluster-storage-node:1.14.0
+        args: [ /app/application.jar ]
         workingDir: /storage
+        ports:
+        - name: http
+          containerPort: 8080
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ all ]
+        volumeMounts:
+        - name: storage
+          mountPath: /storage
+        - name: app
+          mountPath: /app
+          readOnly: true
+        # Restart the pod if container is not responsive at all
+        livenessProbe:
+          periodSeconds: 10
+          timeoutSeconds: 20
+          failureThreshold: 2
+          httpGet:
+            path: /microstream-cluster-controller/microstream-health
+            port: http
+        # Remove the pod from being ready if we fail to check
+        readinessProbe:
+          periodSeconds: 10
+          timeoutSeconds: 20
+          failureThreshold: 1
+          httpGet:
+            path: /microstream-cluster-controller/microstream-health/ready
+            port: http
         env:
         - name: MSCNL_PROD_MODE
           value: "true"
@@ -114,43 +127,15 @@ spec:
           value: "95"
         - name: STORAGE_LIMIT_CHECKER_INTERVAL_MINUTES
           value: "60"
-        ports:
-        - name: http
-          containerPort: 8080
-        # Restart the pod if container is not responsive at all
-        livenessProbe:
-          timeoutSeconds: 5
-          failureThreshold: 5
-          httpGet:
-            path: /microstream-cluster-controller/microstream-health
-            port: http
-        # Remove the pod from being ready if we fail to check
-        readinessProbe:
-          timeoutSeconds: 4
-          failureThreshold: 3
-          httpGet:
-            path: /microstream-cluster-controller/microstream-health/ready
-            port: http
-        # Give the container ~50 seconds to fully start up
-        startupProbe:
-          timeoutSeconds: 5
-          failureThreshold: 10
-          httpGet:
-            path: /microstream-cluster-controller/microstream-health
-            port: http
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop: [ all ]
-        volumeMounts:
-        - name: storage
-          mountPath: /storage
       volumes:
-      - name: user-rest-service
-        emptyDir:
       - name: storage
         emptyDir:
-      - name: masternode-storage
+          sizeLimit: 20G
+      - name: backups
         persistentVolumeClaim:
-          claimName: masternode-storage
+          claimName: storage-backups
+          readOnly: true
+      - name: app
+        persistentVolumeClaim:
+          claimName: user-app
           readOnly: true
