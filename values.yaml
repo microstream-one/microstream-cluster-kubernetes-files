@@ -1,0 +1,31 @@
+# The storage node statefulset runs the eclipse-store backed user-application as the storage-nodes
+storage-node:
+  replicas: 2
+
+# The proxy deployment forwards read requests to the storage-node service and write requests to the writer-proxy service
+proxy:
+  replicas: 1
+
+# PVC specifications for containing the user application jar used by the storage and master-nodes
+user-app:
+  resources:
+    requests:
+      storage: 100M
+    limits:
+      storage: 100M
+
+# PVC specifications for containing the storage backups used by the storage and master-nodes
+storage-backups:
+  resources:
+    requests:
+      storage: 100M
+    limits:
+      storage: 100M
+
+# PVC specifications for containing the masternode storage used by the master-node
+master-node-storage:
+  resources:
+    requests:
+      storage: 100M
+    limits:
+      storage: 100M

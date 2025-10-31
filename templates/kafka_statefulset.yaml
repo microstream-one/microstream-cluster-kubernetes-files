@@ -1,23 +1,25 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: kafka
+  name: {{ include "es-cluster.kafka.fullname" . }}
+  labels:
+    {{- include "es-cluster.kafka.labels" . | nindent 4 }}
 spec:
-  serviceName: kafka
+  serviceName: {{ include "es-cluster.kafka.fullname" . }}
   replicas: 1
   podManagementPolicy: Parallel
   selector:
     matchLabels:
-      microstream.one/cluster-component: kafka
+      {{- include "es-cluster.kafka.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        microstream.one/cluster-component: kafka
+        {{- include "es-cluster.kafka.labels" . | nindent 8 }}
     spec:
       imagePullSecrets: [ name: microstream-ocir-credentials ]
       containers:
       - name: kafka
-        image: ocir.microstream.one/onprem/image/microstream-cluster-kafka:1.14.0
+        image: ocir.microstream.one/onprem/image/microstream-cluster-kafka:1.15.0
         ports:
         - name: plaintext
           containerPort: 9092

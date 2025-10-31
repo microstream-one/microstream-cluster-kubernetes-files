@@ -1,12 +1,13 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: user-app
+  name: {{ include "es-cluster.user-app.fullname" . }}
+  labels:
+    {{- include "es-cluster.labels" . | nindent 4 }}
 spec:
   # Needs to be read-write-many so every storage node can attach and clone the app as a starting point
   accessModes: [ ReadWriteMany ]
+  {{- with .Values.user-app.resources }}
   resources:
-    requests:
-      storage: 100M
-    limits:
-      storage: 100M
+    {{- toYaml . | nindent 4}}
+  {{- end }}

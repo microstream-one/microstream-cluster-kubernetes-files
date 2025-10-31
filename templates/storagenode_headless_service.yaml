@@ -1,0 +1,16 @@
+# Headless Service is required for StatefulSets
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "es-cluster.storage-node-headless.fullname" . }}
+  labels:
+    {{- include "es-cluster.storage-node.labels" . | nindent 4 }}
+spec:
+  clusterIP: None
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+  selector:
+    {{- include "es-cluster.storage-node.selectorLabels" . | nindent 4 }}

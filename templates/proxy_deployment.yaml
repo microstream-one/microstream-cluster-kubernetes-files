@@ -1,16 +1,18 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: proxy
+  name: {{ include "es-cluster.proxy.fullname" . }}
+  labels:
+    {{- include "es-cluster.proxy.labels" . | nindent 4 }}
 spec:
-  replicas: 1
+  replicas: {{ default 1 .Values.proxy.replicas }}
   selector:
     matchLabels:
-      microstream.one/cluster-component: proxy
+      {{- include "es-cluster.proxy.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        microstream.one/cluster-component: proxy
+        {{- include "es-cluster.proxy.labels" . | nindent 8 }}
     spec:
       imagePullSecrets: [ name: microstream-ocir-credentials ]
       containers:
@@ -27,5 +29,5 @@ spec:
       volumes:
       - name: config
         configMap:
-          name: proxy
+          name: {{ include "es-cluster.proxy.fullname" . }}
         
