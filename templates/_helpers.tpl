@@ -108,6 +108,15 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
 {{/*
+Component label values
+*/}}
+{{- define "es-cluster.kafka.component" }}kafka{{ end }}
+{{- define "es-cluster.master-node.component" }}master-node{{ end }}
+{{- define "es-cluster.proxy.component" }}proxy{{ end }}
+{{- define "es-cluster.storage-node.component" }}node{{ end }}
+{{- define "es-cluster.writer-proxy.component" }}writer-proxy{{ end }}
+
+{{/*
 Selector labels
 */}}
 {{- define "es-cluster.selectorLabels" -}}
@@ -117,36 +126,32 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 
 {{- define "es-cluster.kafka.selectorLabels" -}}
 {{ include "es-cluster.selectorLabels" . }}
-app.kubernetes.io/component: kafka
+app.kubernetes.io/component: {{ include "es-cluster.kafka.component" . }}
 {{- end }}
 
 {{- define "es-cluster.master-node.selectorLabels" -}}
 {{ include "es-cluster.selectorLabels" . }}
-app.kubernetes.io/component: master-node
+app.kubernetes.io/component: {{ include "es-cluster.master-node.component" . }}
 {{- end }}
 
 {{- define "es-cluster.proxy.selectorLabels" -}}
 {{ include "es-cluster.selectorLabels" . }}
-app.kubernetes.io/component: proxy
+app.kubernetes.io/component: {{ include "es-cluster.proxy.component" . }}
 {{- end }}
 
 {{- define "es-cluster.storage-node.selectorLabels" -}}
 {{ include "es-cluster.selectorLabels" . }}
-app.kubernetes.io/component: node
+app.kubernetes.io/component: {{ include "es-cluster.storage-node.component" . }}
 {{- end }}
 
 {{- define "es-cluster.writer-proxy.selectorLabels" -}}
 {{ include "es-cluster.selectorLabels" . }}
-app.kubernetes.io/component: writer-proxy
+app.kubernetes.io/component: {{ include "es-cluster.writer-proxy.component" . }}
 {{- end }}
 
 {{/*
-Create the name of the service account to use
+Create the image version of the eclipse-store related images
 */}}
-{{- define "es-cluster.serviceAccountName" -}}
-{{- if .Values.serviceAccount.create }}
-{{- default (include "es-cluster.fullname" .) .Values.serviceAccount.name }}
-{{- else }}
-{{- default "default" .Values.serviceAccount.name }}
-{{- end }}
+{{- define "es-cluster.image.version" -}}
+{{- default .Chart.AppVersion .Values.image.versionOverride }}
 {{- end }}

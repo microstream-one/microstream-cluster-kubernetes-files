@@ -57,14 +57,14 @@ spec:
       fi
 
       # Wait for kafka
-      if ! nc -z -w5 kafka 9092; then
+      if ! nc -z -w5 {{ include "es-cluster.kafka.fullname" . }} 9092; then
         echo "Waiting for kafka..."
         until nc -z -w5 kafka 9092; do sleep 1; done
         echo "...done!"
       fi
   containers:
   - name: masternode
-    image: ocir.microstream.one/onprem/image/microstream-cluster-storage-node:1.15.0
+    image: {{ .Values.image.repository }}onprem/image/microstream-cluster-storage-node:{{ include "es-cluster.image.version" . }}
     workingDir: /storage
     args: [ "/app/application.jar" ]
     ports:
@@ -108,7 +108,7 @@ spec:
     - name: MSCNL_PROD_MODE
       value: "true"
     - name: KAFKA_BOOTSTRAP_SERVERS
-      value: kafka-0.kafka:9092
+      value: {{ include "es-cluster.kafka.fullname" . }}-0.{{ include "es-cluster.kafka.fullname" . }}:9092
     - name: MSCNL_KAFKA_TOPIC_NAME
       value: storage-data
     - name: MSCNL_SECURE_KAFKA

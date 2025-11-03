@@ -33,16 +33,16 @@ data:
       # Map PUT|PATH|DELETE|POST requests to the writerproxy domain
       # Any modifying request that the cluster receives should go through the writerproxy
       # This node knows which storage node is the current writer and forwards the request to it
-      {{- $writerproxy-domain := (printf "%s.%s.svc.cluster.local" (include "es-cluster.writer-proxy.fullname" .) .Release.Namespace) }}
-      {{- $storagenode-domain := (printf "%s.%s.svc.cluster.local" (include "es-cluster.storage-node.fullname" .) .Release.Namespace) }}
+      {{- $writerproxyDomain := (printf "%s.%s.svc.cluster.local" (include "es-cluster.writer-proxy.fullname" .) .Release.Namespace) }}
+      {{- $storagenodeDomain := (printf "%s.%s.svc.cluster.local" (include "es-cluster.storage-node.fullname" .) .Release.Namespace) }}
       map $request_method $upstream_location {
-        PUT    {{ $writerproxy-domain }};
-        PATCH  {{ $writerproxy-domain }};
-        DELETE {{ $writerproxy-domain }};
-        POST   {{ $writerproxy-domain }};
+        PUT    {{ $writerproxyDomain }};
+        PATCH  {{ $writerproxyDomain }};
+        DELETE {{ $writerproxyDomain }};
+        POST   {{ $writerproxyDomain }};
 
         # Any other request can go to the node subdomain. This will go to a random storage node that the loadbalancer deems as sufficent.
-        default {{ $storagenode-domain }};
+        default {{ $storagenodeDomain }};
       }
       
       server {

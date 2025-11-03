@@ -19,7 +19,7 @@ spec:
       imagePullSecrets: [ name: microstream-ocir-credentials ]
       containers:
       - name: kafka
-        image: ocir.microstream.one/onprem/image/microstream-cluster-kafka:1.15.0
+        image: {{ .Values.image.repository }}onprem/image/microstream-cluster-kafka:{{ include "es-cluster.image.version" . }}
         ports:
         - name: plaintext
           containerPort: 9092
@@ -59,7 +59,7 @@ spec:
           value: PLAINTEXT://:9092,CONTROLLER://:9093
 
         - name: ADVERTISED_LISTENERS_TEMPLATE
-          value: PLAINTEXT://%.kafka:9092,CONTROLLER://%.kafka:9093
+          value: PLAINTEXT://%.{{ include "es-cluster.kafka.fullname" . }}:9092,CONTROLLER://%.{{ include "es-cluster.kafka.fullname" . }}:9093
 
         - name: KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP
           value: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:SASL_PLAINTEXT,SASL_SSL:SASL_SSL

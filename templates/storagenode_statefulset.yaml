@@ -6,7 +6,7 @@ metadata:
     {{- include "es-cluster.storage-node.labels" . | nindent 4 }}
 spec:
   podManagementPolicy: Parallel
-  replicas: {{ default 1 .Values.storage-node.replicas }}
+  replicas: {{ default 1 .Values.storageNode.replicas }}
   serviceName: {{ include "es-cluster.storage-node-headless.fullname" . }}
   selector:
     matchLabels:
@@ -30,28 +30,27 @@ spec:
         - sh
         - -ce
         - |
-          # Remove residual files
-          echo "Removing any residual storage files..."
-          if [ -d /storage/storage ]; then
-            echo "Removing residual storage files"
-            rm -r /storage/storage
-          fi
-          if [ -f /storage/offset ]; then
-            echo "Removing residual offset file"
-            rm /storage/offset
-          fi
-          echo "...done!"
+          # Wait for application jar to exist
+          # When this exists then we can start looking for a backup
+          # The user can setup an inital storage by uploading a 'backup'
+          # into the /backups volume via the masternode
+          echo "Waiting for /app/ready flag"
+          until [ -f /app/ready ]; do
+            sleep 1
+          done
 
           # Find latest backup
           echo "Finding latest backup..."
-          while [ -z "$latest_backup" ]; do
-            latest_backup=$(find /backups -mindepth 2 -maxdepth 2 -type f -iname ready | cut -d/ -f3 | sort -n | tail -n 1)
-          done
-          echo "...found latest backup $latest_backup"
+          latest_backup=$(find /backups -mindepth 2 -maxdepth 2 -type f -iname ready | cut -d/ -f3 | sort -n | tail -n 1)
 
-          # Copy backup files into our storage
-          echo "Copying files..."
-          cp -r /backups/$latest_backup/* /storage
+          if [ -n "$latest_backup" ]; then
+            echo "...found latest backup $latest_backup"
+
+            # Copy backup files into our storage
+            echo "Copying files..."
+            cp -r /backups/$latest_backup/* /storage
+          fi
+
           echo "...done!"
         securityContext:
           allowPrivilegeEscalation: false
@@ -63,9 +62,12 @@ spec:
           readOnly: true
         - name: storage
           mountPath: /storage
+        - name: app
+          mountPath: /app
+          readOnly: true
       containers:
       - name: node
-        image: ocir.microstream.one/onprem/image/microstream-cluster-storage-node:1.15.0
+        image: {{ .Values.image.repository }}onprem/image/microstream-cluster-storage-node:{{ include "es-cluster.image.version" . }}
         args: [ /app/application.jar ]
         workingDir: /storage
         ports:
@@ -80,6 +82,9 @@ spec:
           mountPath: /storage
         - name: app
           mountPath: /app
+          readOnly: true
+        - name: backups
+          mountPath: /backups
           readOnly: true
         # Restart the pod if container is not responsive at all
         livenessProbe:
@@ -111,7 +116,7 @@ spec:
         - name: IS_BACKUP_NODE
           value: "false"
         - name: KAFKA_BOOTSTRAP_SERVERS
-          value: kafka-0.kafka:9092
+          value: {{ include "es-cluster.kafka.fullname" . }}-0.{{ include "es-cluster.kafka.fullname" . }}:9092
         - name: MSCNL_KAFKA_TOPIC_NAME
           value: storage-data
         - name: MSCNL_SECURE_KAFKA

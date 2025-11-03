@@ -11,14 +11,19 @@ spec:
     fsGroup: 1000
   containers:
   - name: writerproxy
-    image: ocir.microstream.one/onprem/image/microstream-cluster-writer-proxy:1.15.0
+    image: {{ .Values.image.repository }}onprem/image/microstream-cluster-writer-proxy:{{ include "es-cluster.image.version" . }}
+    imagePullPolicy: Always
     env:
     - name: MICROSTREAM_PATH
       value: '/microstream-cluster-controller/'
     - name: STORAGE_NODE_MAIN_CONTAINER_NAME
       value: node
+    - name: STORAGE_NODE_COMPONENT_LABEL
+      value: {{ include "es-cluster.storage-node.component" . }}
+    - name: STORAGE_NODE_HEADLESS_SERVICE
+      value: {{ include "es-cluster.storage-node-headless.fullname" . }}
     - name: WRITER_PROXY_LOG_LEVEL
-      value: INFO
+      value: trace
     - name: ROOT_LOG_LEVEL
       value: INFO
     ports:

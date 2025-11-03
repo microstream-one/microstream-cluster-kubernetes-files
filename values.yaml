@@ -1,5 +1,17 @@
+# name overrides
+#nameOverride: ""
+#fullnameOverride: ""
+
+image:
+  # If empty the application version of the chart will be used as the version for the images
+  versionOverride: ""
+  # The image repository or prefix for the images. For example the repository="ocir.microstream.one/" then
+  # the resulting image will be "ocir.microstream.one/"
+  # NOTE: The trailing slash is required if not set to an empty string
+  repository: ocir.microstream.one/
+
 # The storage node statefulset runs the eclipse-store backed user-application as the storage-nodes
-storage-node:
+storageNode:
   replicas: 2
 
 # The proxy deployment forwards read requests to the storage-node service and write requests to the writer-proxy service
@@ -7,7 +19,7 @@ proxy:
   replicas: 1
 
 # PVC specifications for containing the user application jar used by the storage and master-nodes
-user-app:
+userApp:
   resources:
     requests:
       storage: 100M
@@ -15,7 +27,7 @@ user-app:
       storage: 100M
 
 # PVC specifications for containing the storage backups used by the storage and master-nodes
-storage-backups:
+storageBackups:
   resources:
     requests:
       storage: 100M
@@ -23,7 +35,7 @@ storage-backups:
       storage: 100M
 
 # PVC specifications for containing the masternode storage used by the master-node
-master-node-storage:
+masterNodeStorage:
   resources:
     requests:
       storage: 100M

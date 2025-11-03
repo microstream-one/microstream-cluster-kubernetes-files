@@ -6,7 +6,7 @@ metadata:
     {{- include "es-cluster.master-node.labels" . | nindent 4 }}
 spec:
   accessModes: [ ReadWriteOnce ]
-  {{- with .Values.master-node-storage.resources }}
-    resources:
-      {{- toYaml . | nindent 4}}
+  {{- with .Values.masterNodeStorage.resources }}
+  resources:
+    {{- toYaml . | nindent 4 }}
   {{- end }}
