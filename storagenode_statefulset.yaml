@@ -1,20 +1,19 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: {{ include "es-cluster.storage-node.fullname" . }}
-  labels:
-    {{- include "es-cluster.storage-node.labels" . | nindent 4 }}
+  name: storagenode
 spec:
   podManagementPolicy: Parallel
-  replicas: {{ default 1 .Values.storage-node.replicas }}
-  serviceName: {{ include "es-cluster.storage-node-headless.fullname" . }}
+  replicas: 2
+  serviceName: node-headless
   selector:
     matchLabels:
-      {{- include "es-cluster.storage-node.selectorLabels" . | nindent 6 }}
+      microstream.one/cluster-component: storagenode
   template:
     metadata:
       labels:
-        {{- include "es-cluster.storage-node.labels" . | nindent 8 }}
+        microstream.one/cluster-component: storagenode
+        app.kubernetes.io/component: node
     spec:
       imagePullSecrets: [ name: microstream-ocir-credentials ]
       securityContext:
@@ -64,8 +63,8 @@ spec:
         - name: storage
           mountPath: /storage
       containers:
-      - name: node
-        image: ocir.microstream.one/onprem/image/microstream-cluster-storage-node:1.15.0
+      - name: storagenode
+        image: ocir.microstream.one/onprem/image/microstream-cluster-storage-node:1.14.0
         args: [ /app/application.jar ]
         workingDir: /storage
         ports:
@@ -134,9 +133,9 @@ spec:
           sizeLimit: 20G
       - name: backups
         persistentVolumeClaim:
-          claimName: {{ include "es-cluster.storage-backups.fullname" . }}
+          claimName: storage-backups
           readOnly: true
       - name: app
         persistentVolumeClaim:
-          claimName: {{ include "es-cluster.user-app.fullname" . }}
+          claimName: user-app
           readOnly: true

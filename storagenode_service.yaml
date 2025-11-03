@@ -1,0 +1,26 @@
+# Headless Service is required for StatefulSets
+apiVersion: v1
+kind: Service
+metadata:
+  name: node-headless
+spec:
+  clusterIP: None
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+  selector:
+    microstream.one/cluster-component: storagenode
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: storagenode
+spec:
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+  selector:
+    microstream.one/cluster-component: storagenode
