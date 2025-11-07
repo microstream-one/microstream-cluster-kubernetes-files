@@ -34,13 +34,10 @@ spec:
       mountPath: /storage
     - name: app
       mountPath: /app
-    resources:
-      requests:
-        memory: 2000M
-        cpu: 1000m
-      limits:
-        memory: 2000M
-        cpu: 1000m
+      {{- with .Values.masterNode.resources }}
+      resources:
+        {{- toYaml . | nindent 6 }}
+      {{- end }}
     command: 
     - sh
     - -ce

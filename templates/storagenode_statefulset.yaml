@@ -59,6 +59,10 @@ spec:
           allowPrivilegeEscalation: false
           capabilities:
             drop: [ all ]
+        {{- with .Values.storageNode.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
         volumeMounts:
         - name: backups
           mountPath: /backups
