@@ -6,7 +6,10 @@ metadata:
     {{- include "es-cluster.writer-proxy.labels" . | nindent 4 }}
 spec:
   serviceAccountName: {{ include "es-cluster.writer-proxy.fullname" . }}
-  imagePullSecrets: [ name: microstream-ocir-credentials ]
+  {{- with .Values.image.pullSecrets }}
+  imagePullSecrets:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   securityContext:
     fsGroup: 1000
   containers:
@@ -26,6 +29,10 @@ spec:
       value: trace
     - name: ROOT_LOG_LEVEL
       value: INFO
+    {{- with .Values.writerProxy.resources }}
+    resources:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
     ports:
     - name: http
       containerPort: 8080

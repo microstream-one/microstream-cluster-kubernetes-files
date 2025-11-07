@@ -5,7 +5,10 @@ metadata:
   labels:
     {{- include "es-cluster.master-node.labels" . | nindent 4 }}
 spec:
-  imagePullSecrets: [ name: microstream-ocir-credentials ]
+  {{- with .Values.image.pullSecrets }}
+  imagePullSecrets:
+    {{- toYaml . | nindent 4}}
+  {{- end }}
   securityContext:
     runAsNonRoot: true
     fsGroupChangePolicy: OnRootMismatch
@@ -67,6 +70,10 @@ spec:
     image: {{ .Values.image.repository }}onprem/image/microstream-cluster-storage-node:{{ include "es-cluster.image.version" . }}
     workingDir: /storage
     args: [ "/app/application.jar" ]
+    {{- with .Values.masterNode.resources }}
+    resources:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
     ports:
     - name: http
       containerPort: 8080

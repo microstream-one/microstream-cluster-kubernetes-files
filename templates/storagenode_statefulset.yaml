@@ -16,7 +16,10 @@ spec:
       labels:
         {{- include "es-cluster.storage-node.labels" . | nindent 8 }}
     spec:
-      imagePullSecrets: [ name: microstream-ocir-credentials ]
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       securityContext:
         runAsNonRoot: true
         fsGroupChangePolicy: OnRootMismatch
@@ -77,6 +80,10 @@ spec:
           allowPrivilegeEscalation: false
           capabilities:
             drop: [ all ]
+        {{- with .Values.storageNode.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
         volumeMounts:
         - name: storage
           mountPath: /storage

@@ -14,7 +14,10 @@ spec:
       labels:
         {{- include "es-cluster.proxy.labels" . | nindent 8 }}
     spec:
-      imagePullSecrets: [ name: microstream-ocir-credentials ]
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
       - name: nginx
         image: nginx:1.27-alpine
@@ -26,6 +29,10 @@ spec:
         - name: config
           subPath: nginx.conf
           mountPath: /etc/nginx/nginx.conf
+        {{- with .Values.proxy.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
       volumes:
       - name: config
         configMap:

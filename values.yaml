@@ -2,6 +2,7 @@
 #nameOverride: ""
 #fullnameOverride: ""
 
+# Container image configurations for the microstream specific images
 image:
   # If empty the application version of the chart will be used as the version for the images
   versionOverride: ""
@@ -9,16 +10,42 @@ image:
   # the resulting image will be "ocir.microstream.one/"
   # NOTE: The trailing slash is required if not set to an empty string
   repository: ocir.microstream.one/
+  # Secrets used to pull images from the image repositories
+  pullSecrets:
+  - name: microstream-ocir-credentials
 
 # The storage node statefulset runs the eclipse-store backed user-application as the storage-nodes
 storageNode:
+  # pod replicas
   replicas: 2
+  # Configure the containers resource requests and limits
+  # Example:
+  # resources:
+  #   requests:
+  #     cpu: 4
+  #     memory: 16G
+  #   limits:
+  #     cpu: 4
+  #     memory: 16G
+  resources: {}
 
 # The proxy deployment forwards read requests to the storage-node service and write requests to the writer-proxy service
 proxy:
+  # pod replicas
   replicas: 1
+  # Configure the containers resource requests and limits
+  # Example:
+  # resources:
+  #   requests:
+  #     cpu: 4
+  #     memory: 16G
+  #   limits:
+  #     cpu: 4
+  #     memory: 16G
+  resources: {}
 
 # PVC specifications for containing the user application jar used by the storage and master-nodes
+# This will need to scale with your application jar
 userApp:
   resources:
     requests:
@@ -27,6 +54,7 @@ userApp:
       storage: 100M
 
 # PVC specifications for containing the storage backups used by the storage and master-nodes
+# If a backup exists and a storage-node is starting, it will use that storage as a starting point
 storageBackups:
   resources:
     requests:
@@ -41,3 +69,43 @@ masterNodeStorage:
       storage: 100M
     limits:
       storage: 100M
+
+# The master-node contains the source-of-truth storage and creates backups of the storage
+masterNode:
+  # Configure the containers resource requests and limits
+  # Example:
+  # resources:
+  #   requests:
+  #     cpu: 4
+  #     memory: 16G
+  #   limits:
+  #     cpu: 4
+  #     memory: 16G
+  resources: {}
+
+# Kafka stores and distributes storage messages from the writer storage-node to
+# the reader storage-nodes and the master-node
+kafka:
+  # Configure the containers resource requests and limits
+  # Example:
+  # resources:
+  #   requests:
+  #     cpu: 4
+  #     memory: 16G
+  #   limits:
+  #     cpu: 4
+  #     memory: 16G
+  resources: {}
+
+# Writer proxy configurations. The writer proxy keeps track of the current writer storage-node and routes traffic to it
+writerProxy:
+  # Configure the containers resource requests and limits
+  # Example:
+  # resources:
+  #   requests:
+  #     cpu: 4
+  #     memory: 16G
+  #   limits:
+  #     cpu: 4
+  #     memory: 16G
+  resources: {}

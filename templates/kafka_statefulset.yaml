@@ -16,10 +16,17 @@ spec:
       labels:
         {{- include "es-cluster.kafka.labels" . | nindent 8 }}
     spec:
-      imagePullSecrets: [ name: microstream-ocir-credentials ]
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
       - name: kafka
         image: {{ .Values.image.repository }}onprem/image/microstream-cluster-kafka:{{ include "es-cluster.image.version" . }}
+        {{- with .Values.kafka.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
         ports:
         - name: plaintext
           containerPort: 9092
