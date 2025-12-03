@@ -17,7 +17,7 @@ spec:
       imagePullSecrets: [ name: microstream-ocir-credentials ]
       containers:
       - name: kafka
-        image: ocir.microstream.one/onprem/image/microstream-cluster-kafka:1.14.0
+        image: ocir.microstream.one/onprem/microstream-cluster-kafka:1.17.0
         ports:
         - name: plaintext
           containerPort: 9092
