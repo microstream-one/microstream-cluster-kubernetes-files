@@ -64,7 +64,7 @@ spec:
       fi
   containers:
   - name: masternode
-    image: {{ .Values.image.repository }}onprem/image/microstream-cluster-storage-node:{{ include "es-cluster.image.version" . }}
+    image: {{ .Values.image.repository }}/microstream-cluster-storage-node:{{ include "es-cluster.image.version" . }}
     workingDir: /storage
     args: [ "/app/application.jar" ]
     {{- with .Values.masterNode.resources }}
@@ -80,7 +80,7 @@ spec:
       timeoutSeconds: 20
       failureThreshold: 2
       httpGet:
-        path: /microstream-cluster-controller/microstream-health
+        path: /eclipse-datagrid/health
         port: http
     # Remove the pod from being ready if we fail to check
     readinessProbe:
@@ -88,7 +88,7 @@ spec:
       timeoutSeconds: 20
       failureThreshold: 1
       httpGet:
-        path: /microstream-cluster-controller/microstream-health/ready
+        path: /eclipse-datagrid/health/ready
         port: http
     securityContext:
       allowPrivilegeEscalation: false

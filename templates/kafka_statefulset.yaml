@@ -22,7 +22,7 @@ spec:
       {{- end }}
       containers:
       - name: kafka
-        image: {{ .Values.image.repository }}onprem/image/microstream-cluster-kafka:{{ include "es-cluster.image.version" . }}
+        image: {{ .Values.image.repository }}/microstream-cluster-kafka:{{ include "es-cluster.image.version" . }}
         {{- with .Values.kafka.resources }}
         resources:
           {{- toYaml . | nindent 10 }}

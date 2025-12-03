@@ -6,10 +6,9 @@
 image:
   # If empty the application version of the chart will be used as the version for the images
   versionOverride: ""
-  # The image repository or prefix for the images. For example the repository="ocir.microstream.one/" then
-  # the resulting image will be "ocir.microstream.one/"
-  # NOTE: The trailing slash is required if not set to an empty string
-  repository: ocir.microstream.one/
+  # The image repository or prefix for the images. For example the repository="ocir.microstream.one/prefix" then
+  # the resulting image will be "ocir.microstream.one/prefix/some-image:1.0.0"
+  repository: ocir.microstream.one/onprem
   # Secrets used to pull images from the image repositories
   pullSecrets:
   - name: microstream-ocir-credentials

@@ -74,7 +74,7 @@ spec:
           readOnly: true
       containers:
       - name: node
-        image: {{ .Values.image.repository }}onprem/image/microstream-cluster-storage-node:{{ include "es-cluster.image.version" . }}
+        image: {{ .Values.image.repository }}/microstream-cluster-storage-node:{{ include "es-cluster.image.version" . }}
         args: [ /app/application.jar ]
         workingDir: /storage
         ports:
@@ -103,7 +103,7 @@ spec:
           timeoutSeconds: 20
           failureThreshold: 2
           httpGet:
-            path: /microstream-cluster-controller/microstream-health
+            path: /eclipse-datagrid/health
             port: http
         # Remove the pod from being ready if we fail to check
         readinessProbe:
@@ -111,7 +111,7 @@ spec:
           timeoutSeconds: 20
           failureThreshold: 1
           httpGet:
-            path: /microstream-cluster-controller/microstream-health/ready
+            path: /eclipse-datagrid/health/ready
             port: http
         env:
         - name: MSCNL_PROD_MODE
@@ -137,7 +137,7 @@ spec:
         - name: MSCNL_KAFKA_PASSWORD
           value: ""
         - name: MICROSTREAM_PATH
-          value: "/microstream-cluster-controller/"
+          value: "/eclipse-datagrid/"
         - name: STORAGE_LIMIT_GB
           value: "20G"
         - name: STORAGE_LIMIT_CHECKER_PERCENT

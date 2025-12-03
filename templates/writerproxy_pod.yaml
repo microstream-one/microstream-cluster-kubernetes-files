@@ -14,11 +14,11 @@ spec:
     fsGroup: 1000
   containers:
   - name: writerproxy
-    image: {{ .Values.image.repository }}onprem/image/microstream-cluster-writer-proxy:{{ include "es-cluster.image.version" . }}
+    image: {{ .Values.image.repository }}/microstream-cluster-writer-proxy:{{ include "es-cluster.image.version" . }}
     imagePullPolicy: Always
     env:
     - name: MICROSTREAM_PATH
-      value: '/microstream-cluster-controller/'
+      value: '/eclipse-datagrid/'
     - name: STORAGE_NODE_MAIN_CONTAINER_NAME
       value: node
     - name: STORAGE_NODE_COMPONENT_LABEL
