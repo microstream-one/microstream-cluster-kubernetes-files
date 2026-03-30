@@ -1,142 +1,151 @@
-apiVersion: v1
-kind: Pod
+apiVersion: apps/v1
+kind: Deployment
 metadata:
   name: {{ include "es-cluster.master-node.fullname" . }}
   labels:
     {{- include "es-cluster.master-node.labels" . | nindent 4 }}
 spec:
-  {{- with .Values.image.pullSecrets }}
-  imagePullSecrets:
-    {{- toYaml . | nindent 4}}
-  {{- end }}
-  securityContext:
-    runAsNonRoot: true
-    fsGroupChangePolicy: OnRootMismatch
-    fsGroup: 10000
-    runAsUser: 10000
-    runAsGroup: 10000
-  resources:
-    requests:
-      memory: 2000M
-      cpu: 1000m
-    limits:
-      memory: 2000M
-      cpu: 1000m
-  initContainers:
-  - name: prepare-masternode
-    image: curlimages/curl:8.11.1
-    securityContext:
-      allowPrivilegeEscalation: false
-      capabilities:
-        drop: [ all ]
-    volumeMounts:
-    - name: storage
-      mountPath: /storage
-    - name: app
-      mountPath: /app
-      {{- with .Values.masterNode.resources }}
-      resources:
-        {{- toYaml . | nindent 6 }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "es-cluster.master-node.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "es-cluster.master-node.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
       {{- end }}
-    command: 
-    - sh
-    - -ce
-    - |
-      # You can upload the jar like this:
-      # `kubectl cp -c prepare-masternode /path/to/jar masternode:/app/application.jar`
-      # If you have a libs folder as well you can copy it with
-      # `kubectl cp -c prepare-masternode /path/to/libs masternode:/app`
-      # When you are done create the ready flag with
-      # `kubectl exec -ti -c prepare-masternode pod/masternode -- touch /app/ready`
+      securityContext:
+        runAsNonRoot: true
+        fsGroupChangePolicy: OnRootMismatch
+        fsGroup: 10000
+        runAsUser: 10000
+        runAsGroup: 10000
+      resources:
+        requests:
+          memory: 2000M
+          cpu: 1000m
+        limits:
+          memory: 2000M
+          cpu: 1000m
+      initContainers:
+      - name: prepare-masternode
+        image: curlimages/curl:8.11.1
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ all ]
+        volumeMounts:
+        - name: storage
+          mountPath: /storage
+        - name: app
+          mountPath: /app
+          {{- with .Values.masterNode.resources }}
+          resources:
+            {{- toYaml . | nindent 6 }}
+          {{- end }}
+        command: 
+        - sh
+        - -ce
+        - |
+          # You can upload the jar like this:
+          # `kubectl cp -c prepare-masternode /path/to/jar masternode:/app/application.jar`
+          # If you have a libs folder as well you can copy it with
+          # `kubectl cp -c prepare-masternode /path/to/libs masternode:/app`
+          # When you are done create the ready flag with
+          # `kubectl exec -ti -c prepare-masternode pod/masternode -- touch /app/ready`
 
-      # Wait for the user application to exist
-      if [ ! -f /app/ready ]; then
-        echo "Waiting for /app/ready flag..."
-        while [ ! -f /app/ready ]; do sleep 1; done
-        echo "...done!"
-      fi
+          # Wait for the user application to exist
+          if [ ! -f /app/ready ]; then
+            echo "Waiting for /app/ready flag..."
+            while [ ! -f /app/ready ]; do sleep 1; done
+            echo "...done!"
+          fi
 
-      # Wait for kafka
-      if ! nc -z -w5 {{ include "es-cluster.kafka.fullname" . }} 9092; then
-        echo "Waiting for kafka..."
-        until nc -z -w5 kafka 9092; do sleep 1; done
-        echo "...done!"
-      fi
-  containers:
-  - name: masternode
-    image: {{ .Values.image.repository }}/microstream-cluster-storage-node:{{ include "es-cluster.image.version" . }}
-    workingDir: /storage
-    args: [ "/app/application.jar" ]
-    {{- with .Values.masterNode.resources }}
-    resources:
-      {{- toYaml . | nindent 6 }}
-    {{- end }}
-    ports:
-    - name: http
-      containerPort: 8080
-    # Restart the pod if container is not responsive at all
-    livenessProbe:
-      periodSeconds: 10
-      timeoutSeconds: 20
-      failureThreshold: 2
-      httpGet:
-        path: /eclipse-datagrid/health
-        port: http
-    # Remove the pod from being ready if we fail to check
-    readinessProbe:
-      periodSeconds: 10
-      timeoutSeconds: 20
-      failureThreshold: 1
-      httpGet:
-        path: /eclipse-datagrid/health/ready
-        port: http
-    securityContext:
-      allowPrivilegeEscalation: false
-      capabilities:
-        drop: [ all ]
-    volumeMounts:
-    - name: storage
-      mountPath: /storage
-    - name: backups
-      mountPath: /backups
-    - name: app
-      mountPath: /app
-    resources:
-      requests:
-        memory: 2000M
-        cpu: 1000m
-      limits:
-        memory: 2000M
-        cpu: 1000m
-    env:
-    - name: MSCNL_PROD_MODE
-      value: "true"
-    - name: KAFKA_BOOTSTRAP_SERVERS
-      value: {{ include "es-cluster.kafka.fullname" . }}-0.{{ include "es-cluster.kafka.fullname" . }}:9092
-    - name: MSCNL_KAFKA_TOPIC_NAME
-      value: storage-data
-    - name: MSCNL_SECURE_KAFKA
-      value: "false"
-    - name: MSCNL_KAFKA_USERNAME
-      value: ""
-    - name: MSCNL_KAFKA_PASSWORD
-      value: ""
-    # Keep Spring Boot (if used in the user rest service) from initializing the user controllers which might lead to NPEs
-    - name: SPRING_MAIN_LAZY-INITIALIZATION
-      value: "true"
-    - name: IS_BACKUP_NODE
-      value: "true"
-    - name: KEPT_BACKUPS_COUNT
-      value: "3"
-    - name: BACKUP_PROXY_SERVICE_URL
-      value: external-resource-proxy
-  volumes:
-  - name: storage
-    persistentVolumeClaim:
-      claimName: {{ include "es-cluster.master-node-storage.fullname" . }}
-  - name: backups
-    persistentVolumeClaim:
-      claimName: {{ include "es-cluster.storage-backups.fullname" . }}
-  - name: app
-    persistentVolumeClaim:
-      claimName: {{ include "es-cluster.user-app.fullname" . }}
+          # Wait for kafka
+          if ! nc -z -w5 {{ include "es-cluster.kafka.fullname" . }} 9092; then
+            echo "Waiting for kafka..."
+            until nc -z -w5 kafka 9092; do sleep 1; done
+            echo "...done!"
+          fi
+      containers:
+      - name: masternode
+        image: {{ .Values.image.repository }}/microstream-cluster-storage-node:{{ include "es-cluster.image.version" . }}
+        workingDir: /storage
+        args: [ "/app/application.jar" ]
+        {{- with .Values.masterNode.resources }}
+        resources:
+          {{- toYaml . | nindent 6 }}
+        {{- end }}
+        ports:
+        - name: http
+          containerPort: 8080
+        # Restart the pod if container is not responsive at all
+        livenessProbe:
+          periodSeconds: 10
+          timeoutSeconds: 20
+          failureThreshold: 2
+          httpGet:
+            path: /eclipse-datagrid/health
+            port: http
+        # Remove the pod from being ready if we fail to check
+        readinessProbe:
+          periodSeconds: 10
+          timeoutSeconds: 20
+          failureThreshold: 1
+          httpGet:
+            path: /eclipse-datagrid/health/ready
+            port: http
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ all ]
+        volumeMounts:
+        - name: storage
+          mountPath: /storage
+        - name: backups
+          mountPath: /backups
+        - name: app
+          mountPath: /app
+        resources:
+          requests:
+            memory: 2000M
+            cpu: 1000m
+          limits:
+            memory: 2000M
+            cpu: 1000m
+        env:
+        - name: MSCNL_PROD_MODE
+          value: "true"
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: {{ include "es-cluster.kafka.fullname" . }}-0.{{ include "es-cluster.kafka.fullname" . }}:9092
+        - name: MSCNL_KAFKA_TOPIC_NAME
+          value: storage-data
+        - name: MSCNL_SECURE_KAFKA
+          value: "false"
+        - name: MSCNL_KAFKA_USERNAME
+          value: ""
+        - name: MSCNL_KAFKA_PASSWORD
+          value: ""
+        # Keep Spring Boot (if used in the user rest service) from initializing the user controllers which might lead to NPEs
+        - name: SPRING_MAIN_LAZY-INITIALIZATION
+          value: "true"
+        - name: IS_BACKUP_NODE
+          value: "true"
+        - name: KEPT_BACKUPS_COUNT
+          value: "3"
+        - name: BACKUP_PROXY_SERVICE_URL
+          value: external-resource-proxy
+      volumes:
+      - name: storage
+        persistentVolumeClaim:
+          claimName: {{ include "es-cluster.master-node-storage.fullname" . }}
+      - name: backups
+        persistentVolumeClaim:
+          claimName: {{ include "es-cluster.storage-backups.fullname" . }}
+      - name: app
+        persistentVolumeClaim:
+          claimName: {{ include "es-cluster.user-app.fullname" . }}
