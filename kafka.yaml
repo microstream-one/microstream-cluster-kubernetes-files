@@ -1,0 +1,91 @@
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaNodePool
+metadata:
+  name: controller
+  labels:
+    strimzi.io/cluster: my-microstream-cluster
+    microstream.one/cluster: my-microstream-cluster
+spec:
+  replicas: 3
+  roles: [ controller ]
+  storage:
+    type: jbod
+    volumes:
+    - id: 0
+      type: persistent-claim
+      size: 10Gi
+      kraftMetadata: shared
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2G
+    limits:
+      cpu: 500m
+      memory: 2G
+---
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaNodePool
+metadata:
+  name: broker
+  labels:
+    strimzi.io/cluster: my-microstream-cluster
+    microstream.one/cluster: my-microstream-cluster
+spec:
+  replicas: 1
+  roles: [ broker ]
+  storage:
+    type: jbod
+    volumes:
+    - id: 0
+      type: persistent-claim
+      size: 50G
+      kraftMetadata: shared
+  resources:
+    requests:
+      cpu: 1
+      memory: 8G
+    limits:
+      cpu: 1
+      memory: 8G
+---
+apiVersion: kafka.strimzi.io/v1
+kind: Kafka
+metadata:
+  name: my-microstream-cluster
+  labels:
+    microstream.one/cluster: my-microstream-cluster
+spec:
+  kafka:
+    version: 4.2.0
+    metadataVersion: 4.2-IV1
+    listeners:
+    - name: plain
+      port: 9092
+      type: internal
+      tls: false
+    config:
+      share.coordinator.state.topic.replication.factor: 1
+      share.coordinator.state.topic.min.isr: 1
+      offsets.topic.replication.factor: 1
+      transaction.state.log.replication.factor: 1
+      transaction.state.log.min.isr: 1
+      default.replication.factor: 1
+      min.insync.replicas: 1
+      auto.create.topics.enable: false
+  entityOperator:
+    topicOperator: {}
+---
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: storage-messages
+  labels:
+    strimzi.io/cluster: my-microstream-cluster
+    microstream.one/cluster: my-microstream-cluster
+spec:
+  partitions: 1
+  replicas: 1
+  config:
+    # NOTE: Backup Node deletes consumed messages (segments)
+    retention.ms: 1209600000 # 14days
+    segment.ms: 7200000 # 2hours

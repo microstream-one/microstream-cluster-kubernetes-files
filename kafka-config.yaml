@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-config
+  labels:
+    microstream.one/cluster: my-microstream-cluster
+data:
+  kafka.config.properties: |
+    bootstrap.servers=my-microstream-cluster-kafka-bootstrap:9092
