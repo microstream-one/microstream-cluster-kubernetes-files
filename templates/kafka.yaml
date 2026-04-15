@@ -1,0 +1,75 @@
+{{- if .Values.kafkaCluster.enabled }}
+{{- $clustername := include "es-cluster.kafka.fullname" . }}
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaNodePool
+metadata:
+  name: controller
+  labels:
+    strimzi.io/cluster: {{ $clustername }}
+    {{- include "es-cluster.kafka.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.kafkaCluster.controller.replicas }}
+  roles: [ controller ]
+  storage:
+    type: jbod
+    volumes:
+    - id: 0
+      type: persistent-claim
+      size: {{ .Values.kafkaCluster.controller.volume.size }}
+      kraftMetadata: shared
+  resources:
+    {{- toYaml .Values.kafkaCluster.controller.resources | nindent 4 }}
+---
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaNodePool
+metadata:
+  name: broker
+  labels:
+    strimzi.io/cluster: {{ $clustername }}
+    {{- include "es-cluster.kafka.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.kafkaCluster.broker.replicas }}
+  roles: [ broker ]
+  storage:
+    type: jbod
+    volumes:
+    - id: 0
+      type: persistent-claim
+      size: {{ .Values.kafkaCluster.broker.volume.size }}
+      kraftMetadata: shared
+  resources:
+    {{- toYaml .Values.kafkaCluster.broker.resources | nindent 4 }}
+---
+apiVersion: kafka.strimzi.io/v1
+kind: Kafka
+metadata:
+  name: {{ $clustername }}
+  labels:
+    {{- include "es-cluster.kafka.labels" . | nindent 4 }}
+spec:
+  kafka:
+    version: 4.2.0
+    metadataVersion: 4.2-IV1
+    listeners:
+    - name: plain
+      port: 9092
+      type: internal
+      tls: false
+    config:
+      {{- toYaml .Values.kafkaCluster.config | nindent 6 }}
+  entityOperator:
+    topicOperator: {}
+---
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: {{ .Values.kafkaCluster.topic.name }}
+  labels:
+    strimzi.io/cluster: {{ $clustername }}
+    {{- include "es-cluster.kafka.labels" . | nindent 4 }}
+spec:
+  partitions: {{ .Values.kafkaCluster.topic.partitions }}
+  replicas: {{ .Values.kafkaCluster.topic.replicas }}
+  config:
+    {{- toYaml .Values.kafkaCluster.topic.config | nindent 4 }}
+{{- end }}

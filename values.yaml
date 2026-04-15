@@ -83,18 +83,65 @@ masterNode:
   resources: {}
 
 # Kafka stores and distributes storage messages from the writer storage-node to
-# the reader storage-nodes and the master-node
-kafka:
-  # Configure the containers resource requests and limits
-  # Example:
-  # resources:
-  #   requests:
-  #     cpu: 4
-  #     memory: 16G
-  #   limits:
-  #     cpu: 4
-  #     memory: 16G
-  resources: {}
+# the reader storage-nodes and the master-node. Any Kafka server would do and can be configured
+# with the Kafka producer and consumer configs. If no Kafka server is available one can be created
+# with Strimzi. If Strimzi is already installed and is watching the release namespace only the kafkaCluster
+# has to be enabled for generation of the Kafka cluster, Topic and other Strimzi CRDs
+# For the most simple case when no Strimzi is installed yet is to leave strimzi-kafka-operator.enabled=true
+# and kafkaCluster.enabled=true
+# For more information about Strimzi visit https://strimzi.io/
+strimzi-kafka-operator:
+  enabled: true
+kafkaCluster:
+  enabled: true
+  client:
+    # Config for the Kafka producer and consumers that will be appended to the
+    # ConfigMap properties file
+    # Example:
+    # additionalConfig: |
+    #   retries: 10
+    #   batch.size: 32768
+    #   ...
+    additionalConfig: ""
+  config:
+    share.coordinator.state.topic.replication.factor: 1
+    share.coordinator.state.topic.min.isr: 1
+    offsets.topic.replication.factor: 1
+    transaction.state.log.replication.factor: 1
+    transaction.state.log.min.isr: 1
+    default.replication.factor: 1
+    min.insync.replicas: 1
+    auto.create.topics.enable: false
+    group.initial.rebalance.delay.ms: 0 # We use only 1 client per group so don't wait for rebalance
+  topic:
+    name: storage-messages
+    partitions: 1
+    replicas: 1
+    config:
+      retention.ms: 1209600000 # 14days
+      segment.ms: 7200000 # 2hours
+  controller:
+    replicas: 3
+    volume:
+      size: 10Gi
+    resources: {}
+      # requests:
+      #   cpu: 500m
+      #   memory: 2G
+      # limits:
+      #   cpu: 500m
+      #   memory: 2G
+  broker:
+    replicas: 1
+    volume:
+      size: 50G
+    resources: {}
+      # requests:
+      #   cpu: 500m
+      #   memory: 2G
+      # limits:
+      #   cpu: 500m
+      #   memory: 2G
 
 # Writer proxy configurations. The writer proxy keeps track of the current writer storage-node and routes traffic to it
 writerProxy:

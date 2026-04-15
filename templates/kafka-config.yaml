@@ -1,0 +1,14 @@
+{{ if .Values.kafkaCluster.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "es-cluster.kafka.fullname" . }}
+  labels:
+    {{- include "es-cluster.kafka.labels" . | nindent 4 }}
+data:
+  kafka.config.properties: |
+    bootstrap.servers={{ include "es-cluster.fullname" . }}-kafka-kafka-bootstrap:9092
+    {{- if .Values.kafkaCluster.client.additionalConfig }}
+    {{- .Values.kafkaCluster.client.additionalConfig | nindent 4 }}
+    {{- end }}
+{{- end }}

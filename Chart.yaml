@@ -2,7 +2,10 @@ apiVersion: v2
 name: es-cluster
 description: Helm chart to deploy a scalable eclipse-store backed cluster 
 type: application
-# Versions are expected to follow Semantic Versioning (https://semver.org/)
 version: 1.17.0
-# It is recommended to use quotes for the application version number
 appVersion: "1.17.0"
+dependencies:
+- name: strimzi-kafka-operator
+  condition: strimzi-kafka-operator.enabled
+  repository: https://strimzi.io/charts
+  version: 0.51.0

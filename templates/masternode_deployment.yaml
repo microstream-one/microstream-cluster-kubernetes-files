@@ -24,13 +24,6 @@ spec:
         fsGroup: 10000
         runAsUser: 10000
         runAsGroup: 10000
-      resources:
-        requests:
-          memory: 2000M
-          cpu: 1000m
-        limits:
-          memory: 2000M
-          cpu: 1000m
       initContainers:
       - name: prepare-masternode
         image: curlimages/curl:8.11.1
@@ -45,7 +38,7 @@ spec:
           mountPath: /app
           {{- with .Values.masterNode.resources }}
           resources:
-            {{- toYaml . | nindent 6 }}
+            {{- toYaml . | nindent 12 }}
           {{- end }}
         command: 
         - sh
@@ -64,13 +57,6 @@ spec:
             while [ ! -f /app/ready ]; do sleep 1; done
             echo "...done!"
           fi
-
-          # Wait for kafka
-          if ! nc -z -w5 {{ include "es-cluster.kafka.fullname" . }} 9092; then
-            echo "Waiting for kafka..."
-            until nc -z -w5 kafka 9092; do sleep 1; done
-            echo "...done!"
-          fi
       containers:
       - name: masternode
         image: {{ .Values.image.repository }}/microstream-cluster-storage-node:{{ include "es-cluster.image.version" . }}
@@ -78,7 +64,7 @@ spec:
         args: [ "/app/application.jar" ]
         {{- with .Values.masterNode.resources }}
         resources:
-          {{- toYaml . | nindent 6 }}
+          {{- toYaml . | nindent 10 }}
         {{- end }}
         ports:
         - name: http
@@ -110,6 +96,9 @@ spec:
           mountPath: /backups
         - name: app
           mountPath: /app
+        - name: kafka-config
+          mountPath: /kafka
+          readOnly: true
         resources:
           requests:
             memory: 2000M
@@ -118,18 +107,10 @@ spec:
             memory: 2000M
             cpu: 1000m
         env:
+        - name: MSCNL_KAFKA_TOPIC_NAME
+          value: {{ .Values.kafkaCluster.topic.name }}
         - name: MSCNL_PROD_MODE
           value: "true"
-        - name: KAFKA_BOOTSTRAP_SERVERS
-          value: {{ include "es-cluster.kafka.fullname" . }}-0.{{ include "es-cluster.kafka.fullname" . }}:9092
-        - name: MSCNL_KAFKA_TOPIC_NAME
-          value: storage-data
-        - name: MSCNL_SECURE_KAFKA
-          value: "false"
-        - name: MSCNL_KAFKA_USERNAME
-          value: ""
-        - name: MSCNL_KAFKA_PASSWORD
-          value: ""
         # Keep Spring Boot (if used in the user rest service) from initializing the user controllers which might lead to NPEs
         - name: SPRING_MAIN_LAZY-INITIALIZATION
           value: "true"
@@ -149,3 +130,10 @@ spec:
       - name: app
         persistentVolumeClaim:
           claimName: {{ include "es-cluster.user-app.fullname" . }}
+      - name: kafka-config
+        projected:
+          sources:
+          - configMap:
+              name: {{ include "es-cluster.kafka.fullname" . }}
+              optional: false
+

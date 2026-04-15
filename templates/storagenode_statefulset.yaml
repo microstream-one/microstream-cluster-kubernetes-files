@@ -59,10 +59,6 @@ spec:
           allowPrivilegeEscalation: false
           capabilities:
             drop: [ all ]
-        {{- with .Values.storageNode.resources }}
-        resources:
-          {{- toYaml . | nindent 10 }}
-        {{- end }}
         volumeMounts:
         - name: backups
           mountPath: /backups
@@ -97,6 +93,9 @@ spec:
         - name: backups
           mountPath: /backups
           readOnly: true
+        - name: kafka-config
+          mountPath: /kafka
+          readOnly: true
         # Restart the pod if container is not responsive at all
         livenessProbe:
           periodSeconds: 10
@@ -114,6 +113,8 @@ spec:
             path: /eclipse-datagrid/health/ready
             port: http
         env:
+        - name: MSCNL_KAFKA_TOPIC_NAME
+          value: {{ .Values.kafkaCluster.topic.name }}
         - name: MSCNL_PROD_MODE
           value: "true"
         - name: MY_POD_NAME
@@ -126,16 +127,6 @@ spec:
               fieldPath: metadata.namespace
         - name: IS_BACKUP_NODE
           value: "false"
-        - name: KAFKA_BOOTSTRAP_SERVERS
-          value: {{ include "es-cluster.kafka.fullname" . }}-0.{{ include "es-cluster.kafka.fullname" . }}:9092
-        - name: MSCNL_KAFKA_TOPIC_NAME
-          value: storage-data
-        - name: MSCNL_SECURE_KAFKA
-          value: "false"
-        - name: MSCNL_KAFKA_USERNAME
-          value: ""
-        - name: MSCNL_KAFKA_PASSWORD
-          value: ""
         - name: MICROSTREAM_PATH
           value: "/eclipse-datagrid/"
         - name: STORAGE_LIMIT_GB
@@ -156,3 +147,9 @@ spec:
         persistentVolumeClaim:
           claimName: {{ include "es-cluster.user-app.fullname" . }}
           readOnly: true
+      - name: kafka-config
+        projected:
+          sources:
+          - configMap:
+              name: {{ include "es-cluster.kafka.fullname" . }}
+              optional: false
