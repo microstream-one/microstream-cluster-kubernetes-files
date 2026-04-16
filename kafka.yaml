@@ -72,6 +72,7 @@ spec:
       default.replication.factor: 1
       min.insync.replicas: 1
       auto.create.topics.enable: false
+      group.initial.rebalance.delay.ms: 0 # We use only 1 client per group so don't wait for rebalance
   entityOperator:
     topicOperator: {}
 ---
