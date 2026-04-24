@@ -69,7 +69,7 @@ spec:
           cpu: 1000m
       initContainers:
       - name: prepare-masternode
-        image: curlimages/curl:8.11.1
+        image: curlimages/curl:8.19.0
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -258,7 +258,7 @@ spec:
         runAsGroup: 10000
       initContainers:
       - name: prepare-storagenode
-        image: curlimages/curl:8.11.1
+        image: curlimages/curl:8.19.0
         command: 
         - sh
         - -ce
@@ -487,7 +487,7 @@ spec:
       imagePullSecrets: [ name: microstream-ocir-credentials ]
       containers:
       - name: nginx
-        image: nginx:1.27-alpine
+        image: nginx:1.29.8
         ports:
         - containerPort: 8080
           name: http
@@ -496,6 +496,13 @@ spec:
         - name: config
           subPath: nginx.conf
           mountPath: /etc/nginx/nginx.conf
+        resources:
+          requests:
+            memory: 100M
+            cpu: 250m
+          limits:
+            memory: 100M
+            cpu: 250m
       volumes:
       - name: config
         configMap:
@@ -607,3 +614,10 @@ spec:
       httpGet:
         path: /health
         port: http
+    resources:
+      requests:
+        memory: 2000M
+        cpu: 1000m
+      limits:
+        memory: 2000M
+        cpu: 1000m
