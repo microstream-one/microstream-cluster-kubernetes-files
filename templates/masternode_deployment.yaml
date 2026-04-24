@@ -69,22 +69,18 @@ spec:
         ports:
         - name: http
           containerPort: 8080
-        # Restart the pod if container is not responsive at all
+        {{- with .Values.masterNode.startupProbe }}
+        startupProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.masterNode.livenessProbe }}
         livenessProbe:
-          periodSeconds: 10
-          timeoutSeconds: 20
-          failureThreshold: 2
-          httpGet:
-            path: /eclipse-datagrid/health
-            port: http
-        # Remove the pod from being ready if we fail to check
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.masterNode.readinessProbe }}
         readinessProbe:
-          periodSeconds: 10
-          timeoutSeconds: 20
-          failureThreshold: 1
-          httpGet:
-            path: /eclipse-datagrid/health/ready
-            port: http
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -99,13 +95,6 @@ spec:
         - name: kafka-config
           mountPath: /kafka
           readOnly: true
-        resources:
-          requests:
-            memory: 2000M
-            cpu: 1000m
-          limits:
-            memory: 2000M
-            cpu: 1000m
         env:
         - name: MSCNL_KAFKA_TOPIC_NAME
           value: {{ .Values.kafkaCluster.topic.name }}
