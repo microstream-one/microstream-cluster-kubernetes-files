@@ -36,10 +36,10 @@ spec:
           mountPath: /storage
         - name: app
           mountPath: /app
-          {{- with .Values.masterNode.resources }}
-          resources:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
+        {{- with .Values.masterNode.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
         command: 
         - sh
         - -ce
